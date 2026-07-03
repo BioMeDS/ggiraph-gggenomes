@@ -1,0 +1,80 @@
+---
+title: "Interactive gene models with gggenomes and ggiraph (experimental)"
+output:
+  html_document:
+    self_contained: true
+    toc: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+This page demonstrates `geom_gene_interactive()`, an **experimental** drop-in
+replacement for [`geom_gene()`](https://thackl.github.io/gggenomes/reference/geom_gene.html)
+that renders gene models as interactive SVG elements via the
+[ggiraph](https://davidgohel.github.io/ggiraph/) package. Hover over a gene
+below to see its description/name/ID as a tooltip. All genes with the same name/description/ID
+are also highlighted.
+
+The example reuses the six-viral-genome comparison from the
+[gggenomes README](https://github.com/thackl/gggenomes#readme). The only
+change from the static version is swapping `geom_gene()` for
+`geom_gene_interactive()` and mapping `tooltip` (and `data_id`, for highlighting)
+to a gene identifier.
+
+## Installation
+
+`geom_gene_interactive()` is not yet part of a released version of
+gggenomes. It currently lives on the `ggiraph-prototype` branch of
+[thackl/gggenomes](https://github.com/thackl/gggenomes/tree/ggiraph-prototype)
+on GitHub. Install it (together with ggiraph) with:
+
+```r
+# install.packages("remotes")
+remotes::install_github("thackl/gggenomes", ref = "ggiraph-prototype")
+install.packages("ggiraph")
+install.packages("Hmisc")
+```
+
+```{r plot}
+library(gggenomes)
+
+p <- gggenomes(
+  genes = emale_genes, seqs = emale_seqs, links = emale_ava,
+  feats = list(emale_tirs, ngaros = emale_ngaros, gc = emale_gc)
+) |>
+  add_sublinks(emale_prot_ava) |>
+  sync() + # synchronize genome directions based on links
+  geom_feat(position = "identity", size = 6) +
+  geom_seq() +
+  geom_link(data = links(2)) +
+  geom_bin_label() +
+  geom_gene_interactive(aes(
+    fill = name,
+    tooltip = dplyr::coalesce(Note, name, feat_id),
+    data_id = dplyr::coalesce(name, Note, feat_id)
+  )) +
+  geom_gene_tag(aes(label = name), nudge_y = 0.1, check_overlap = TRUE) +
+  geom_feat(data = feats(ngaros), alpha = .3, size = 10, position = "identity") +
+  geom_feat_note(aes(label = "Ngaro-transposon"),
+    data = feats(ngaros),
+    nudge_y = .1, vjust = 0
+  ) +
+  geom_wiggle(aes(z = score, linetype = "GC-content"), feats(gc),
+    fill = "lavenderblush4", position = position_nudge(y = -.2), height = .2
+  ) +
+  scale_fill_brewer("Genes", palette = "Dark2", na.value = "cornsilk3")
+```
+
+```{r girafe, fig.width=9, fig.height=4.5}
+ggiraph::girafe(
+  ggobj = p,
+  options = list(
+    ggiraph::opts_sizing(rescale = TRUE),
+    ggiraph::opts_zoom(min = 1, max = 5),
+    ggiraph::opts_tooltip(opacity = .9),
+    ggiraph::opts_hover(css = "stroke:black;stroke-width:2px;")
+  )
+)
+```
